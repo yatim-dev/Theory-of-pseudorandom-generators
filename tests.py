@@ -21,7 +21,7 @@ class Tests:
         # Вычисляем p-значение
         sobs = count / np.sqrt(len(binary_data))
         p_val = erfc(abs(sobs) / np.sqrt(2))
-        return p_val
+        return (p_val, ("Random" if p_val >= 0.01 else "Non-Random"))
 
     @staticmethod
     def block_frequency_test(binary_data, block_size = 128):
@@ -64,7 +64,7 @@ class Tests:
 
         p_value = gammaincc(number_of_blocks / 2, result / 2)
 
-        return (p_value)
+        return (p_value, ("Random" if p_value >= 0.01 else "Non-Random"))
 
     @staticmethod
     def longest_run_ones_in_block_test(binary_data):
@@ -119,7 +119,7 @@ class Tests:
                     number_of_blocks * pi_values[count])
 
         p_value = gammaincc(float(k / 2), float(xObs / 2))
-        return p_value
+        return (p_value, ("Random" if p_value >= 0.01 else "Non-Random"))
     
     @staticmethod
     def non_overlapping_test(binary_data, template_pattern='000000001', block=8):
@@ -171,7 +171,7 @@ class Tests:
 
         # Calculate and return the p value statistic
         p_value = gammaincc((block / 2), (xObs / 2))
-        return (p_value)
+        return (p_value, ("Random" if p_value >= 0.01 else "Non-Random"))
 
     @staticmethod
     def overlapping_patterns(binary_data, pattern_size=16, block_size=128):
@@ -229,7 +229,7 @@ class Tests:
             xObs += pow(pattern_counts[i] - number_of_block * pi[i], 2.0) / (number_of_block * pi[i])
 
         p_value = gammaincc(5.0 / 2.0, xObs / 2.0)
-        return (p_value)
+        return (p_value, ("Random" if p_value >= 0.01 else "Non-Random"))
 
     @staticmethod
     def get_prob(u, x):
@@ -240,19 +240,6 @@ class Tests:
     
     @staticmethod
     def statistical_test(binary_data):
-        """
-        Note that this description is taken from the NIST documentation [1]
-        [1] http://csrc.nist.gov/publications/nistpubs/800-22-rev1a/SP800-22rev1a.pdf
-        The focus of this test is the number of bits between matching patterns (a measure that is related to the
-        length of a compressed sequence). The purpose of the test is to detect whether or not the sequence can be
-        significantly compressed without loss of information. A significantly compressible sequence is considered
-        to be non-random. **This test is always skipped because the requirements on the lengths of the binary
-        strings are too high i.e. there have not been enough trading days to meet the requirements.
-
-        :param      binary_data:    a binary string
-        :param      verbose             True to display the debug messgae, False to turn off debug message
-        :return:    (p_value, bool) A tuple which contain the p_value and result of frequency_test(True or False)
-        """
         length_of_binary_data = len(binary_data)
         pattern_size = 5
         if length_of_binary_data >= 387840:
@@ -279,18 +266,15 @@ class Tests:
             pattern_size = 16
 
         if 5 < pattern_size < 16:
-            # Create the biggest binary string of length pattern_size
             ones = ""
             for i in range(pattern_size):
                 ones += "1"
 
-            # How long the state list should be
             num_ints = int(ones, 2)
             vobs = np.zeros(num_ints + 1)
 
-            # Keeps track of the blocks, and whether were are initializing or summing
             num_blocks = floor(length_of_binary_data / pattern_size)
-            # Q = 10 * pow(2, pattern_size)
+
             init_bits = 10 * pow(2, pattern_size)
 
             test_bits = num_blocks - init_bits
@@ -322,34 +306,16 @@ class Tests:
 
             p_value = erfc(stat)
 
-            return (p_value, (p_value>=0.01))
+            return (p_value, ("Random" if p_value >= 0.01 else "Non-Random"))
         else:
-            return (-1.0, False)
+            return (-1.0, ("Non-Random"))
         
     @staticmethod
     def linear_complexity_test(binary_data, block_size=500):
-        """
-        Note that this description is taken from the NIST documentation [1]
-        [1] http://csrc.nist.gov/publications/nistpubs/800-22-rev1a/SP800-22rev1a.pdf
-        The focus of this test is the length of a linear feedback shift register (LFSR). The purpose of this test is to
-        determine whether or not the sequence is complex enough to be considered random. Random sequences are
-        characterized by longer LFSRs. An LFSR that is too short implies non-randomness.
-
-        :param      binary_data:    a binary string
-        :param      verbose         True to display the debug messgae, False to turn off debug message
-        :param      block_size:     Size of the block
-        :return:    (p_value, bool) A tuple which contain the p_value and result of frequency_test(True or False)
-
-        """
-
         length_of_binary_data = len(binary_data)
 
-        # The number of degrees of freedom;
-        # K = 6 has been hard coded into the test.
         degree_of_freedom = 6
 
-        #  π0 = 0.010417, π1 = 0.03125, π2 = 0.125, π3 = 0.5, π4 = 0.25, π5 = 0.0625, π6 = 0.020833
-        #  are the probabilities computed by the equations in Section 3.10
         pi = [0.01047, 0.03125, 0.125, 0.5, 0.25, 0.0625, 0.020833]
 
         t2 = (block_size / 3.0 + 2.0 / 9) / 2 ** block_size
@@ -378,25 +344,14 @@ class Tests:
             for i in range(len(pi)):
                 xObs += im[i]
 
-            # P-Value = igamc(K/2, xObs/2)
             p_value = gammaincc(degree_of_freedom / 2.0, xObs / 2.0)
 
-            return (p_value, (p_value >= 0.01))
+            return (p_value, ("Random" if p_value >= 0.01 else "Non-Random"))
         else:
-            return (-1.0, False)
+            return (-1.0, "Non-Random")
         
     @staticmethod
     def berlekamp_massey_algorithm(block_data):
-        """
-        An implementation of the Berlekamp Massey Algorithm. Taken from Wikipedia [1]
-        [1] - https://en.wikipedia.org/wiki/Berlekamp-Massey_algorithm
-        The Berlekamp–Massey algorithm is an algorithm that will find the shortest linear feedback shift register (LFSR)
-        for a given binary output sequence. The algorithm will also find the minimal polynomial of a linearly recurrent
-        sequence in an arbitrary field. The field requirement means that the Berlekamp–Massey algorithm requires all
-        non-zero elements to have a multiplicative inverse.
-        :param block_data:
-        :return:
-        """
         n = len(block_data)
         c = np.zeros(n)
         b = np.zeros(n)
@@ -424,19 +379,7 @@ class Tests:
     
     @staticmethod
     def approximate_entropy_test(binary_data, pattern_length=10):
-        """
-        from the NIST documentation http://csrc.nist.gov/publications/nistpubs/800-22-rev1a/SP800-22rev1a.pdf
-
-        As with the Serial test of Section 2.11, the focus of this test is the frequency of all possible
-        overlapping m-bit patterns across the entire sequence. The purpose of the test is to compare
-        the frequency of overlapping blocks of two consecutive/adjacent lengths (m and m+1) against the
-        expected result for a random sequence.
-
-        :param      binary_data:        a binary string
-        :param      verbose             True to display the debug message, False to turn off debug message
-        :param      pattern_length:     the length of the pattern (m)
-        :return:    ((p_value1, bool), (p_value2, bool)) A tuple which contain the p_value and result of serial_test(True or False)
-        """
+       
         length_of_binary_data = len(binary_data)
 
         # Augment the n-bit sequence to create n overlapping m-bit sequences by appending m-1 bits
@@ -473,28 +416,11 @@ class Tests:
 
         p_value = gammaincc(pow(2, pattern_length - 1), xObs / 2.0)
 
-        return (p_value, (p_value >= 0.01))
+        return (p_value, ("Random" if p_value >= 0.01 else "Non-Random"))
     
     @staticmethod
     def cumulative_sums_test(binary_data:str, mode=0, verbose=False):
-        """
-        from the NIST documentation http://csrc.nist.gov/publications/nistpubs/800-22-rev1a/SP800-22rev1a.pdf
-
-        The focus of this test is the maximal excursion (from zero) of the random walk defined by the cumulative sum of
-        adjusted (-1, +1) digits in the sequence. The purpose of the test is to determine whether the cumulative sum of
-        the partial sequences occurring in the tested sequence is too large or too small relative to the expected
-        behavior of that cumulative sum for random sequences. This cumulative sum may be considered as a random walk.
-        For a random sequence, the excursions of the random walk should be near zero. For certain types of non-random
-        sequences, the excursions of this random walk from zero will be large.
-
-        :param      binary_data:    a binary string
-        :param      mode            A switch for applying the test either forward through the input sequence (mode = 0)
-                                    or backward through the sequence (mode = 1).
-        :param      verbose         True to display the debug messgae, False to turn off debug message
-        :return:    (p_value, bool) A tuple which contain the p_value and result of frequency_test(True or False)
-
-        """
-
+    
         length_of_binary_data = len(binary_data)
         counts = np.zeros(length_of_binary_data)
 
@@ -536,12 +462,4 @@ class Tests:
         p_value = 1.0 - sum(np.array(terms_one))
         p_value += sum(np.array(terms_two))
 
-        if verbose:
-            print('Cumulative Sums Test DEBUG BEGIN:')
-            print("\tLength of input:\t", length_of_binary_data)
-            print('\tMode:\t\t\t\t', mode)
-            print('\tValue of z:\t\t\t', abs_max)
-            print('\tP-Value:\t\t\t', p_value)
-            print('DEBUG END.')
-
-        return (p_value, (p_value >= 0.01))
+        return (p_value, ("Random" if p_value >= 0.01 else "Non-Random"))
